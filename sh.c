@@ -16,7 +16,10 @@
 
 #define MAXARGS 10
 
-int script_check = 0;
+char whitespace[] = " \t\r\n\v";
+char symbols[] = "<|>&;()";
+
+//int script_check = 0;
 
 struct cmd {
   int type;
@@ -148,7 +151,7 @@ runcmd(struct cmd *cmd)
     else if(st_and==0)
 	runcmd(pcmd->right);
     //wait1(&st_and);
-    exit1(st_and);
+   // exit1(st_and);
     //printf(2,"new status: %d\n",st_and);
     break;
   
@@ -174,7 +177,7 @@ runcmd(struct cmd *cmd)
 int
 getcmd(char *buf, int nbuf)
 {
-  if(script_check == 0)
+ // if(script_check == 0)
     printf(2, "$ ");
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
@@ -222,17 +225,15 @@ script(char *file)
 	
 	read(fd,cmd,st.size);
 	count = linecount(cmd);
-    	//printf(2,"cmd: %s fd: %d\n",cmd,fd);
 	for(i=0;i<count;i++){
 		char lines[50];
 		end = cmdline(lines,cmd+endline) + 1;
 		endline += end;
 		lines[end-1]='\0';
-	//	printf(2,"Commands: %s\n",lines,endline);
-		if(fork1())
-			wait1(&st_lines);
-		else
-			runcmd(parsecmd(lines));
+		//printf(2,"line: %s\n",lines);
+		if(fork1()==0)
+			runcmd(parsecmd(lines)); 
+		wait1(&st_lines);
 	}
   }
   else{
@@ -246,7 +247,7 @@ int
 main(void)
 {
   static char buf[100];
-  int fd;
+  int fd, exit_status;
 
   // Ensure that three file descriptors are open.
   while((fd = open("console", O_RDWR)) >= 0){
@@ -267,14 +268,31 @@ main(void)
     }
     if(buf[0]=='s' && buf[1]=='h' && buf[2] == ' '){
 	buf[strlen(buf)-1]=0;
-	script_check = 1;
-	script(buf+3);
+	//script_check = 1;
+	//Get filename
+	int shift = 0;
+	char *filename = buf+3;
+	char cpy[100],temp[100];
+	while(!strchr(symbols,*filename) || strchr(whitespace,*filename)){
+		filename++;
+		shift++;
+	}
+	strcpy(cpy,filename);
+	buf[strlen(buf) - strlen(filename)] = 0;
+	strcpy(temp,cpy);
+	strcpy(cpy,buf);
+	strcpy(buf,temp);
+
+	if(*(cpy+strlen(cpy) -1) == ' ')
+		cpy[strlen(cpy) - 1] = 0;
+	script(cpy+3);
     }
     if(fork1() == 0)
       runcmd(parsecmd(buf));
-    wait();
+    wait1(&exit_status);
+   
   }
-  exit();
+  exit1(exit_status);
 }
 
 void
@@ -391,9 +409,6 @@ backcmd(struct cmd *subcmd)
 //PAGEBREAK!
 // Parsing
 
-char whitespace[] = " \t\r\n\v";
-char symbols[] = "<|>&;()";
-
 int
 gettoken(char **ps, char *es, char **q, char **eq)
 {
@@ -479,22 +494,18 @@ parseline(char **ps, char *es)
 {
   struct cmd *cmd;
    
-  printf(2, "og cmd:%s\n", *ps);
   cmd = parsepipe(ps,es);
         
-    printf(2, "after pipe:%s\n", *ps);
   	while(peek(ps, es, "&")){
     		gettoken(ps, es, 0, 0);
     		cmd = backcmd(cmd);
  	}
   
-    printf(2, "after back:%s\n", *ps);
   if(peek(ps, es, ";")){
     gettoken(ps, es, 0, 0);
     cmd = listcmd(cmd, parseline(ps, es));
   }
   
-    printf(2, "after list:%s\n", *ps);
   return cmd;
 }
 
