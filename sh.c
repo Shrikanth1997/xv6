@@ -11,6 +11,8 @@
 #define PIPE  3
 #define LIST  4
 #define BACK  5
+#define AND   6
+#define OR    7
 
 #define MAXARGS 10
 
@@ -66,7 +68,7 @@ runcmd(struct cmd *cmd)
   struct redircmd *rcmd;
 
   if(cmd == 0)
-    exit();
+    exit1(0);
 
   switch(cmd->type){
   default:
@@ -132,9 +134,24 @@ runcmd(struct cmd *cmd)
     pcmd = (struct pipecmd*)cmd;
     if(pipe(p)<0)
       panic("pipe");
-    if()
+    if(fork1()==0)
+    	runcmd(pcmd->right);
+    wait();
+    printf(2,"In And\n");
+    break;
+  
+  case OR:
+    pcmd = (struct pipecmd*)cmd;
+    if(pipe(p)<0)
+      panic("pipe");
+    if(fork1()==0)
+	runcmd(pcmd->right);
+    wait();
+    printf(2,"In Or\n");
+    break;
+
   }
-  exit1(5);
+  exit();
 }
 
 int
@@ -468,7 +485,7 @@ parseand(char **ps, char *es)
     if((char)tok == '&')
 	    andcount++;
     if(andcount == 2){
-    	cmd = pipecmd(cmd, parseand(ps, es));
+    	cmd = andcmd(cmd, parseand(ps, es));
     }
    }
   
@@ -480,7 +497,6 @@ parsepipe(char **ps, char *es)
 {
   struct cmd *cmd; 
   int orcount=0;
-  //int out;
   cmd = parseand(ps, es);
   if(peek(ps, es, "|")){
 
@@ -497,10 +513,7 @@ parsepipe(char **ps, char *es)
     	cmd = pipecmd(cmd, parsepipe(ps, es));
     }
     else{
-    	//printf(2, "|| cmd: %s",*ps);
-	//read(1,&out,4);
-	//write(0,&out,4);
-    	cmd = pipecmd(cmd, parsepipe(ps, es));
+    	cmd = orcmd(cmd, parsepipe(ps, es));
     }
   } 
 
@@ -617,6 +630,19 @@ nulterminate(struct cmd *cmd)
     nulterminate(pcmd->left);
     nulterminate(pcmd->right);
     break;
+
+  case AND:
+    pcmd = (struct pipecmd*)cmd;
+    nulterminate(pcmd->left);
+    nulterminate(pcmd->right);
+    break;
+
+  case OR:
+    pcmd = (struct pipecmd*)cmd;
+    nulterminate(pcmd->left);
+    nulterminate(pcmd->right);
+    break;
+
 
   case LIST:
     lcmd = (struct listcmd*)cmd;
