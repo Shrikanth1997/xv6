@@ -127,8 +127,14 @@ runcmd(struct cmd *cmd)
     if(fork1() == 0)
       runcmd(bcmd->cmd);
     break;
+
+  case AND:
+    pcmd = (struct pipecmd*)cmd;
+    if(pipe(p)<0)
+      panic("pipe");
+    if()
   }
-  exit();
+  exit1(5);
 }
 
 int
@@ -279,6 +285,32 @@ redircmd(struct cmd *subcmd, char *file, char *efile, int mode, int fd)
   cmd->efile = efile;
   cmd->mode = mode;
   cmd->fd = fd;
+  return (struct cmd*)cmd;
+}
+
+struct cmd*
+andcmd(struct cmd *left, struct cmd *right)
+{
+  struct pipecmd *cmd;
+
+  cmd = malloc(sizeof(*cmd));
+  memset(cmd, 0, sizeof(*cmd));
+  cmd->type = AND;
+  cmd->left = left;
+  cmd->right = right;
+  return (struct cmd*)cmd;
+}
+
+struct cmd*
+orcmd(struct cmd *left, struct cmd *right)
+{
+  struct pipecmd *cmd;
+
+  cmd = malloc(sizeof(*cmd));
+  memset(cmd, 0, sizeof(*cmd));
+  cmd->type = OR;
+  cmd->left = left;
+  cmd->right = right;
   return (struct cmd*)cmd;
 }
 
