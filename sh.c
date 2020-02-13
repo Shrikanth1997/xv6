@@ -16,6 +16,8 @@
 
 #define MAXARGS 10
 
+int script_check = 0;
+
 struct cmd {
   int type;
 };
@@ -77,7 +79,7 @@ runcmd(struct cmd *cmd)
   case EXEC:
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
-      exit1(5);
+      exit1(1);
     exec(ecmd->argv[0], ecmd->argv);
     printf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
@@ -137,14 +139,17 @@ runcmd(struct cmd *cmd)
     int st_and;
     if(fork1()){
 	wait1(&st_and);
-        //printf(2,"status: %d\n",st);
+        //printf(2,"status: %d\n",st_and);
     }
     else
     	runcmd(pcmd->left);
-    if(st_and == 0 && fork()==0)
+    if(fork())
+    	wait1(&st_and);
+    else if(st_and==0)
 	runcmd(pcmd->right);
-    wait1(&st_and);
-    //printf(2,"new status: %d\n",st);
+    //wait1(&st_and);
+    exit1(st_and);
+    //printf(2,"new status: %d\n",st_and);
     break;
   
   case OR:
@@ -156,19 +161,21 @@ runcmd(struct cmd *cmd)
 	wait1(&st_or);
     else
 	runcmd(pcmd->left);
-    if(st_or!=0 && fork()==0)
+    if(fork())
+    	wait1(&st_or);
+    else if(st_or!=0)
  	runcmd(pcmd->right);
-    wait1(&st_or);
     break;
 
   }
-  exit1(0);
+  exit1(1);
 }
 
 int
 getcmd(char *buf, int nbuf)
 {
-  printf(2, "$ ");
+  if(script_check == 0)
+    printf(2, "$ ");
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
   if(buf[0] == 0) // EOF
@@ -208,7 +215,7 @@ script(char *file)
   if(stat(file, &st) != 0) {
       return 0;
   }
-  int i,count,endline=0,end;
+  int i,count,endline=0,end,st_lines;
   int fd = open(file,O_RDWR);
   if(fd >= 0){
 	char cmd[st.size];
@@ -222,9 +229,10 @@ script(char *file)
 		endline += end;
 		lines[end-1]='\0';
 	//	printf(2,"Commands: %s\n",lines,endline);
-		if(fork1()==0)
+		if(fork1())
+			wait1(&st_lines);
+		else
 			runcmd(parsecmd(lines));
-		wait();
 	}
   }
   else{
@@ -259,6 +267,7 @@ main(void)
     }
     if(buf[0]=='s' && buf[1]=='h' && buf[2] == ' '){
 	buf[strlen(buf)-1]=0;
+	script_check = 1;
 	script(buf+3);
     }
     if(fork1() == 0)
@@ -469,19 +478,23 @@ struct cmd*
 parseline(char **ps, char *es)
 {
   struct cmd *cmd;
- 
+   
+  printf(2, "og cmd:%s\n", *ps);
   cmd = parsepipe(ps,es);
         
+    printf(2, "after pipe:%s\n", *ps);
   	while(peek(ps, es, "&")){
     		gettoken(ps, es, 0, 0);
     		cmd = backcmd(cmd);
  	}
-
+  
+    printf(2, "after back:%s\n", *ps);
   if(peek(ps, es, ";")){
     gettoken(ps, es, 0, 0);
     cmd = listcmd(cmd, parseline(ps, es));
   }
   
+    printf(2, "after list:%s\n", *ps);
   return cmd;
 }
 

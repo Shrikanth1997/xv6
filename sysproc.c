@@ -108,12 +108,12 @@ sys_wait1(void)
 
 }
 
-int 
+void 
 sys_exit1(void)
 {
   int status;
   argint(0,&status);
   exit1(status);
-  return 0;
+  return;
 }
 	
