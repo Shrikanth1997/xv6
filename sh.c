@@ -77,7 +77,7 @@ runcmd(struct cmd *cmd)
   case EXEC:
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
-      exit();
+      exit1(5);
     exec(ecmd->argv[0], ecmd->argv);
     printf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
@@ -134,10 +134,17 @@ runcmd(struct cmd *cmd)
     pcmd = (struct pipecmd*)cmd;
     if(pipe(p)<0)
       panic("pipe");
-    if(fork1()==0)
-    	runcmd(pcmd->right);
-    wait();
-    printf(2,"In And\n");
+    int st=3;
+    if(fork1()){
+	wait1(&st);
+        printf(2,"status: %d\n",st);
+    }
+    else
+    	runcmd(pcmd->left);
+    if(st == 0 && fork()==0)
+	runcmd(pcmd->right);
+    wait1(&st);
+    printf(2,"new status: %d\n",st);
     break;
   
   case OR:
@@ -151,7 +158,7 @@ runcmd(struct cmd *cmd)
     break;
 
   }
-  exit();
+  exit1(6);
 }
 
 int
