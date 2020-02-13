@@ -134,31 +134,35 @@ runcmd(struct cmd *cmd)
     pcmd = (struct pipecmd*)cmd;
     if(pipe(p)<0)
       panic("pipe");
-    int st=3;
+    int st_and;
     if(fork1()){
-	wait1(&st);
-        printf(2,"status: %d\n",st);
+	wait1(&st_and);
+        //printf(2,"status: %d\n",st);
     }
     else
     	runcmd(pcmd->left);
-    if(st == 0 && fork()==0)
+    if(st_and == 0 && fork()==0)
 	runcmd(pcmd->right);
-    wait1(&st);
-    printf(2,"new status: %d\n",st);
+    wait1(&st_and);
+    //printf(2,"new status: %d\n",st);
     break;
   
   case OR:
     pcmd = (struct pipecmd*)cmd;
     if(pipe(p)<0)
       panic("pipe");
-    if(fork1()==0)
-	runcmd(pcmd->right);
-    wait();
-    printf(2,"In Or\n");
+    int st_or;
+    if(fork1())
+	wait1(&st_or);
+    else
+	runcmd(pcmd->left);
+    if(st_or!=0 && fork()==0)
+ 	runcmd(pcmd->right);
+    wait1(&st_or);
     break;
 
   }
-  exit1(6);
+  exit1(0);
 }
 
 int
@@ -217,7 +221,7 @@ script(char *file)
 		end = cmdline(lines,cmd+endline) + 1;
 		endline += end;
 		lines[end-1]='\0';
-		printf(2,"Commands: %s\n",lines,endline);
+	//	printf(2,"Commands: %s\n",lines,endline);
 		if(fork1()==0)
 			runcmd(parsecmd(lines));
 		wait();
