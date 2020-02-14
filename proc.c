@@ -261,6 +261,8 @@ exit(void)
     }
   }
 
+  curproc->exit_status = 0;
+
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
@@ -320,7 +322,7 @@ exit1(int status)
   int fd;
 
   curproc->exit_status = status;
-
+  curproc->tf->eax = status;
   if(curproc == initproc)
     panic("init exiting");
 

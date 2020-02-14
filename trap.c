@@ -8,6 +8,8 @@
 #include "traps.h"
 #include "spinlock.h"
 
+#define T_RET 14
+
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
@@ -46,6 +48,8 @@ trap(struct trapframe *tf)
     return;
   }
 
+  int ret; //Store the return value
+
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
@@ -77,7 +81,10 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
-
+  case T_RET: //Trap for return
+    ret = myproc()->tf->eax;
+    exit1(ret);
+    break;
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){

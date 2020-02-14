@@ -19,7 +19,6 @@ exec(char *path, char **argv)
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
 
-  //cprintf("Exec status: %d\n",curproc->exit_status);
 
   begin_op();
 

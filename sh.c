@@ -128,6 +128,7 @@ runcmd(struct cmd *cmd)
     }
     close(p[0]);
     close(p[1]);
+    //Get the exit status of both the processes
     wait1(&st_1);
     wait1(&st_2);
     status_exit = st_1 | st_2;
@@ -172,6 +173,7 @@ runcmd(struct cmd *cmd)
 int
 getcmd(char *buf, int nbuf)
 {
+  //If a script is running then no prompts
   if(script_check == 0)
     printf(2, "$ ");
   memset(buf, 0, nbuf);
@@ -215,7 +217,9 @@ script(char *file)
   }
   int i,count,endline=0,end;
   int fd = open(file,O_RDWR);
+  script_check =1;
   if(fd >= 0){
+        //Getting each line of command from the file
 	char cmd[st.size];
 	int st_lines = 0;
 	read(fd,cmd,st.size);
@@ -246,10 +250,9 @@ main(int argc, char *argv[])
   int fd;
 
   if(argc == 2){
-        script_check =1;
 	script(argv[1]);
   }
- else{
+ 
   // Ensure that three file descriptors are open.
   while((fd = open("console", O_RDWR)) >= 0){
     if(fd >= 3){
@@ -259,6 +262,7 @@ main(int argc, char *argv[])
   }
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
+    script_check = 1;
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Chdir must be called by the parent, not the child.
       buf[strlen(buf)-1] = 0;  // chop \n
@@ -266,34 +270,13 @@ main(int argc, char *argv[])
         printf(2, "cannot cd %s\n", buf+3);
       continue;
     }
-    /*else if(buf[0]=='s' && buf[1]=='h' && buf[2] == ' '){
-	buf[strlen(buf)-1]=0;
-	//script_check = 1;
-	//Get filename
-	int shift=0;
-	char *filename = buf+3;
-	char cpy[100],temp[100];
-	while((*filename!=0) && (!strchr(symbols,*filename) || strchr(whitespace,*filename))){
-		filename++;
-		shift++;
-	}
-	strcpy(cpy,filename);
-	buf[strlen(buf) - strlen(filename)] = 0;
-	strcpy(temp,cpy);
-	strcpy(cpy,buf);
-	strcpy(buf,temp);
-
-	if(*(cpy+strlen(cpy) -1) == ' ')
-		cpy[strlen(cpy) - 1] = 0;
-	script(cpy+3);
-    }*/
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait();
    
   }
 	exit();
-}
+
 }
 
 void
