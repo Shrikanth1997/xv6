@@ -19,7 +19,7 @@
 char whitespace[] = " \t\r\n\v";
 char symbols[] = "<|>&;()";
 
-//int script_check = 0;
+int script_check = 0;
 
 struct cmd {
   int type;
@@ -67,6 +67,7 @@ int script(char*);
 void
 runcmd(struct cmd *cmd)
 {
+  int status_exit, st_1, st_2;
   int p[2];
   struct backcmd *bcmd;
   struct execcmd *ecmd;
@@ -84,7 +85,7 @@ runcmd(struct cmd *cmd)
   case EXEC:
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
-      exit1(1);
+      exit();
     exec(ecmd->argv[0], ecmd->argv);
     printf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
@@ -127,8 +128,9 @@ runcmd(struct cmd *cmd)
     }
     close(p[0]);
     close(p[1]);
-    wait();
-    wait();
+    wait1(&st_1);
+    wait1(&st_2);
+    status_exit = st_1 | st_2;
     break;
 
   case BACK:
@@ -141,15 +143,10 @@ runcmd(struct cmd *cmd)
     pcmd = (struct pipecmd*)cmd;
     if(pipe(p)<0)
       panic("pipe");
-    int st_and;
-    if(fork1()){
-	wait1(&st_and);
-    }
-    else
+    if(fork1() == 0)
     	runcmd(pcmd->left);
-    if(fork())
-    	wait1(&st_and);
-    else if(st_and==0)
+    wait1(&status_exit);
+    if(status_exit==0)
 	runcmd(pcmd->right);
     break;
   
@@ -157,25 +154,25 @@ runcmd(struct cmd *cmd)
     pcmd = (struct pipecmd*)cmd;
     if(pipe(p)<0)
       panic("pipe");
-    int st_or;
-    if(fork1())
-	wait1(&st_or);
-    else
+    if(fork1()==0)
 	runcmd(pcmd->left);
-    if(fork())
-    	wait1(&st_or);
-    else if(st_or!=0)
+    wait1(&status_exit);
+    if(status_exit!=0)
  	runcmd(pcmd->right);
     break;
 
   }
-  exit();
+
+ if(status_exit == 0)
+   exit();
+ else
+   exit1(1);
 }
 
 int
 getcmd(char *buf, int nbuf)
 {
- // if(script_check == 0)
+  if(script_check == 0)
     printf(2, "$ ");
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
@@ -216,11 +213,11 @@ script(char *file)
   if(stat(file, &st) != 0) {
       return 0;
   }
-  int i,count,endline=0,end,st_lines;
+  int i,count,endline=0,end;
   int fd = open(file,O_RDWR);
   if(fd >= 0){
 	char cmd[st.size];
-	
+	int st_lines = 0;
 	read(fd,cmd,st.size);
 	count = linecount(cmd);
 	for(i=0;i<count;i++){
@@ -233,6 +230,7 @@ script(char *file)
 			runcmd(parsecmd(lines)); 
 		wait1(&st_lines);
 	}
+	exit1(st_lines);
   }
   else{
 	printf(2,"File does not exist fd: %d buf: %s\n",fd,file); 
@@ -245,12 +243,13 @@ int
 main(int argc, char *argv[])
 {
   static char buf[100];
-  int fd, exit_status;
+  int fd;
 
   if(argc == 2){
+        script_check =1;
 	script(argv[1]);
   }
-
+ else{
   // Ensure that three file descriptors are open.
   while((fd = open("console", O_RDWR)) >= 0){
     if(fd >= 3){
@@ -290,14 +289,11 @@ main(int argc, char *argv[])
     }*/
     if(fork1() == 0)
       runcmd(parsecmd(buf));
-    wait1(&exit_status);
+    wait();
    
   }
-  //if(exit_status == 0)
-//	exit();
- // else
-	exit1(1);
-
+	exit();
+}
 }
 
 void

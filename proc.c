@@ -395,7 +395,7 @@ wait1(int *status)
     if(!havekids || curproc->killed){
       release(&ptable.lock);
       if(status)
-	*status = -1;
+	*status = 0;
       return -1;
     }
 
