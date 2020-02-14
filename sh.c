@@ -61,6 +61,8 @@ int fork1(void);  // Fork but panics on failure.
 void panic(char*);
 struct cmd *parsecmd(char*);
 
+int script(char*);
+
 // Execute cmd.  Never returns.
 void
 runcmd(struct cmd *cmd)
@@ -142,7 +144,6 @@ runcmd(struct cmd *cmd)
     int st_and;
     if(fork1()){
 	wait1(&st_and);
-        //printf(2,"status: %d\n",st_and);
     }
     else
     	runcmd(pcmd->left);
@@ -150,9 +151,6 @@ runcmd(struct cmd *cmd)
     	wait1(&st_and);
     else if(st_and==0)
 	runcmd(pcmd->right);
-    //wait1(&st_and);
-   // exit1(st_and);
-    //printf(2,"new status: %d\n",st_and);
     break;
   
   case OR:
@@ -171,7 +169,7 @@ runcmd(struct cmd *cmd)
     break;
 
   }
-  exit1(1);
+  exit();
 }
 
 int
@@ -244,10 +242,14 @@ script(char *file)
 }
 
 int
-main(void)
+main(int argc, char *argv[])
 {
   static char buf[100];
   int fd, exit_status;
+
+  if(argc == 2){
+	script(argv[1]);
+  }
 
   // Ensure that three file descriptors are open.
   while((fd = open("console", O_RDWR)) >= 0){
@@ -256,7 +258,6 @@ main(void)
       break;
     }
   }
-
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
@@ -266,14 +267,14 @@ main(void)
         printf(2, "cannot cd %s\n", buf+3);
       continue;
     }
-    if(buf[0]=='s' && buf[1]=='h' && buf[2] == ' '){
+    /*else if(buf[0]=='s' && buf[1]=='h' && buf[2] == ' '){
 	buf[strlen(buf)-1]=0;
 	//script_check = 1;
 	//Get filename
-	int shift = 0;
+	int shift=0;
 	char *filename = buf+3;
 	char cpy[100],temp[100];
-	while(!strchr(symbols,*filename) || strchr(whitespace,*filename)){
+	while((*filename!=0) && (!strchr(symbols,*filename) || strchr(whitespace,*filename))){
 		filename++;
 		shift++;
 	}
@@ -286,13 +287,17 @@ main(void)
 	if(*(cpy+strlen(cpy) -1) == ' ')
 		cpy[strlen(cpy) - 1] = 0;
 	script(cpy+3);
-    }
+    }*/
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait1(&exit_status);
    
   }
-  exit1(exit_status);
+  //if(exit_status == 0)
+//	exit();
+ // else
+	exit1(1);
+
 }
 
 void
@@ -552,10 +557,6 @@ parsepipe(char **ps, char *es)
     }
   } 
 
-  /*if(peek(ps, es, "|")){
-    gettoken(ps, es, 0, 0);
-    cmd = pipecmd(cmd, parsepipe(ps, es));
-  }*/
   return cmd;
 }
 
